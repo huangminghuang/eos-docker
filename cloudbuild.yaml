@@ -32,7 +32,7 @@ steps:
         set -ex
         cd eos
         cmake -H. -Bbuild $_BUILD_FLAGS
-        cmake --build build --target all -- -j 1
+        cmake --build build --target all -- -j 4
         cd ..
         tar zcf eos.ccache.tar.gz /root/.ccache
 
@@ -50,4 +50,5 @@ substitutions:
 
 timeout: 7200s
 
- 
+options:
+  machineType: 'N1_HIGHCPU_8'
