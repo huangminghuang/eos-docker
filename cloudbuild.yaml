@@ -1,0 +1,53 @@
+steps:
+  - name: gcr.io/cloud-builders/gsutil
+    entrypoint: bash
+    args: 
+      - '-c'
+      - | 
+        # copy ccache file from storage
+        gsutil cp gs://$PROJECT_ID-cloudbuild/eos.ccache.tar.gz .  || exit 0
+        tar zxf eos.ccache.tar.gz -C / 
+    volumes:
+    - name: 'ccache'
+      path: /root/.ccache
+
+  ### clone the repository and reset to the specified commit id
+  - name: gcr.io/cloud-builders/git
+    entrypoint: bash
+    args: 
+      - '-c'
+      - | 
+        git clone --depth 1 -b master https://github.com/EOSIO/eos.git --recursive
+
+  ### build binaries
+  - name: gcr.io/$PROJECT_ID/eos-builder
+    id: build
+    volumes:
+      - name: 'ccache'
+        path: /root/.ccache
+    args:
+      - bash
+      - -c
+      - |
+        set -ex
+        cd eos
+        cmake -H. -Bbuild $_BUILD_FLAGS
+        cmake --build build --target all -- -j 1
+        cd ..
+        tar zcf eos.ccache.tar.gz /root/.ccache
+
+
+  ## copy the ccache back to Google storage
+  - name: gcr.io/cloud-builders/gsutil
+    args: [ 'cp', 'eos.ccache.tar.gz' , 'gs://$PROJECT_ID-cloudbuild/']
+
+
+substitutions: 
+  _BUILD_FLAGS: > 
+      -G Ninja -DCMAKE_BUILD_TYPE=Release -DWASM_ROOT=/opt/wasm -DCORE_SYMBOL_NAME=SYS 
+      -DCMAKE_INSTALL_PREFIX=/usr/local  -DBUILD_MONGO_DB_PLUGIN=true 
+      -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+
+timeout: 7200s
+
+ 
