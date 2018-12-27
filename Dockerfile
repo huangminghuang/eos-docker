@@ -1,10 +1,20 @@
-FROM huangminghuang/eos_builder
-
-ARG branch=master
-ARG symbol=SYS
-
-RUN git clone --depth 1 -b $branch https://github.com/EOSIO/eos.git --recursive \
-    && cd eos && echo "$branch:$(git rev-parse HEAD)" > /etc/eosio-version \
-    && cmake -H. -Bbuild -GNinja -DCMAKE_BUILD_TYPE=Release -DWASM_ROOT=/opt/wasm \
-       -DCMAKE_INSTALL_PREFIX=/usr/local -DBUILD_MONGO_DB_PLUGIN=true -DCORE_SYMBOL_NAME=$symbol \
-    && cmake --build build --target install -- -j 1
+FROM gcr.io/oci-grandeos/eos-build-cache AS builder
+ARG CONTRACTS_VERSION
+RUN curl -sLO https://storage.googleapis.com/oci-grandeos/eosio_cdt-1.4.1-ubuntu-18.04.deb \
+    && dpkg -i eosio_cdt-1.4.1-ubuntu-18.04.deb
+RUN git clone --depth 1 -b '$CONTRACTS_VERSION' --single-branch https://github.com/EOSIO/eosio.contracts.git --recursive
+RUN cd eosio.contracts \
+    && sed -i 's/include(Unit/#include(Unit/' CMakeLists.txt \
+    && cmake -H. -Bbuild -GNinja -DCMAKE_BUILD_TYPE=Release \
+    && cmake --build build --target all \
+    && mkdir -p /contracts \
+    && find build -name "*.wasm" -o -name "*.abi" | xargs cp -t /contracts/
+    
+    
+FROM ubuntu:18.04
+RUN apt-get update \
+    && apt-get install -y libssl libgmp3 libicu \
+    && rm -rf /var/lib/apt/lists/*
+COPY --from=builder /usr/local/bin /usr/local/bin
+COPY --from=builder /usr/local/licenses /usr/local/licenses
+COPY --from=builder /contracts /usr/local/contracts

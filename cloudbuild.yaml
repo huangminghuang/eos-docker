@@ -1,54 +1,24 @@
-steps:
-  - name: gcr.io/cloud-builders/gsutil
+steps:        
+  ### build the final image
+  - name: 'gcr.io/cloud-builders/docker'
     entrypoint: bash
     args: 
       - '-c'
-      - | 
-        # copy ccache file from storage
-        gsutil cp gs://$PROJECT_ID-cloudbuild/eos.ccache.tar.gz .  || exit 0
-        tar zxf eos.ccache.tar.gz -C / 
-    volumes:
-    - name: 'ccache'
-      path: /root/.ccache
-
-  ### clone the repository and reset to the specified commit id
-  - name: gcr.io/cloud-builders/git
-    entrypoint: bash
-    args: 
-      - '-c'
-      - | 
-        git clone --depth 1 -b master https://github.com/EOSIO/eos.git --recursive
-
-  ### build binaries
-  - name: gcr.io/$PROJECT_ID/eos-builder
-    id: build
-    volumes:
-      - name: 'ccache'
-        path: /root/.ccache
-    args:
-      - bash
-      - -c
       - |
-        set -ex
-        cd eos
-        cmake -H. -Bbuild $_BUILD_FLAGS
-        cmake --build build --target all -- -j 2
-        cd ..
-        tar zcf eos.ccache.tar.gz /root/.ccache
-
-
-  ## copy the ccache back to Google storage
-  - name: gcr.io/cloud-builders/gsutil
-    args: [ 'cp', 'eos.ccache.tar.gz' , 'gs://$PROJECT_ID-cloudbuild/']
-
+        docker build -t gcr.io/$PROJECT_ID/eos-build-cache:new -f Dockerfile.eos-build-cache --build-arg EOS_VERSION=$_EOS_VERSION --build-arg JOBS=2 .
+        docker tag gcr.io/$PROJECT_ID/eos-build-cache:new gcr.io/$PROJECT_ID/eos-build-cache
+        docker build -t gcr.io/$PROJECT_ID/eos -t gcr.io/$PROJECT_ID/eos:$_EOS_VERSION -f Dockerfile --build-arg CONTRACTS_VERSION=$_CONTRACTS_VERSION .
 
 substitutions: 
-  _BUILD_FLAGS: > 
-      -G Ninja -DCMAKE_BUILD_TYPE=Release -DWASM_ROOT=/opt/wasm -DCORE_SYMBOL_NAME=SYS 
-      -DCMAKE_INSTALL_PREFIX=/usr/local  -DBUILD_MONGO_DB_PLUGIN=true 
-      -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+  _EOS_VERSION: v1.5.2
+  _CONTRACTS_VERSION: v1.5.1
 
 timeout: 7200s
 
 options:
   machineType: 'N1_HIGHCPU_8'
+  
+images:
+  - 'gcr.io/$PROJECT_ID/eos-build-cache'
+  - 'gcr.io/$PROJECT_ID/eos'
+  - 'gcr.io/$PROJECT_ID/eos:${_EOS_VERSION}'
