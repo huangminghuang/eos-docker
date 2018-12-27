@@ -1,7 +1,7 @@
 FROM gcr.io/oci-grandeos/eos-build-cache
 ARG EOS_VERSION
 ARG JOBS=2
-RUN git clone --depth 1 -b '$EOS_VERSION' --single-branch https://github.com/EOSIO/eos.git --recursive \
+RUN git clone --depth 1 -b $EOS_VERSION --single-branch https://github.com/EOSIO/eos.git --recursive \
     && cd eos \
     && cmake -H. -Bbuild -G Ninja -DCMAKE_BUILD_TYPE=Release -DWASM_ROOT=/opt/wasm -DCORE_SYMBOL_NAME=SYS \
       -DCMAKE_INSTALL_PREFIX=/usr/local  -DBUILD_MONGO_DB_PLUGIN=true \
