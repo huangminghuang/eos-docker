@@ -1,0 +1,4 @@
+FROM tmp-cache AS build
+FROM huangminghuang/eos_builder 
+COPY --from=build /root /root
+

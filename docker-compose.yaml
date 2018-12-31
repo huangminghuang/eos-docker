@@ -1,0 +1,33 @@
+version: "3.3"
+
+services:
+  bios:
+    # build:
+    #   context: .
+    image: ${EOS_IMAGE:-huangminghuang/eos}
+    command: 
+      - bash
+      - /usr/local/bin/boot-bios.sh
+      - ${NODEOS_OPTIONS:---max-transaction-time 50000 --abi-serializer-max-time-ms 990000 --contracts-console --filter-on "*"}
+    restart: "no"
+    # tty: true
+      
+  nodeos-0:
+    hostname: nodeos-0
+    # build:
+    #   context: .
+    image: ${EOS_IMAGE:-huangminghuang/eos}
+    command:
+      - bash
+      - /usr/local/bin/boot-nodeos.sh
+      - ${NODEOS_OPTIONS:---max-transaction-time 50000 --abi-serializer-max-time-ms 990000 --contracts-console --filter-on "*"}
+    depends_on:
+      - bios
+    environment:
+      BIOS_ADDR: "bios:8888"
+      PRODUCERS: 1
+      NODES: 1
+    ports:
+      - 8888:8888
+    restart: unless-stopped
+    # tty: true

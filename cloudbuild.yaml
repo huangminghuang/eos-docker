@@ -1,24 +1,43 @@
 steps:        
   ### build the final image
   - name: 'gcr.io/cloud-builders/docker'
+    secretEnv: ['PASSWORD']
     entrypoint: bash
     args: 
       - '-c'
       - |
-        docker build . -t gcr.io/$PROJECT_ID/eos-build-cache:new -f Dockerfile.eos-build-cache --build-arg EOS_VERSION=$_EOS_VERSION --build-arg JOBS=2
-        docker tag gcr.io/$PROJECT_ID/eos-build-cache:new gcr.io/$PROJECT_ID/eos-build-cache
-        docker build . -t gcr.io/$PROJECT_ID/eos -t gcr.io/$PROJECT_ID/eos:$_EOS_VERSION -f Dockerfile --build-arg CONTRACTS_VERSION=$_CONTRACTS_VERSION
+        export BUILD_ARGS='--build-arg EOS_VERSION=$_EOS_VERSION --build-arg CONTRACTS_VERSION=$_CONTRACTS_VERSION --build-arg EOS_BUILDER=$_EOS_BUILDER --build-arg JOBS=2'
+        
+        docker build . -t gcr.io/oci-grandeos/eos -t gcr.io/oci-grandeos/eos:$_EOS_VERSION  \
+          -t huangminghuang/eos -t huangminghuang/eos:$_EOS_VERSION $$BUILD_ARGS 
+          
+        # Extract the /root directory into a new cache image. Without this, the cache image would grow rapidly because of the docker union filesystem.
+        docker build . -t tmp-cache $$BUILD_ARGS --target eos-cache
+        docker build . -t $_EOS_CACHE -f Dockerfile.cache
+          
+        docker login --username=huangminghuang --password=$$PASSWORD
+        docker push huangminghuang/eos 
+        docker push huangminghuang/eos:$_EOS_VERSION
 
 substitutions: 
   _EOS_VERSION: v1.5.2
   _CONTRACTS_VERSION: v1.5.1
-
+  _EOS_BUILDER: gcr.io/oci-grandeos/eos-build-cache
+  _EOS_CACHE: gcr.io/oci-grandeos/eos-build-cache
+  
 timeout: 7200s
 
 options:
   machineType: 'N1_HIGHCPU_8'
   
 images:
-  - 'gcr.io/$PROJECT_ID/eos-build-cache'
-  - 'gcr.io/$PROJECT_ID/eos'
-  - 'gcr.io/$PROJECT_ID/eos:${_EOS_VERSION}'
+  - $_EOS_CACHE
+  - 'gcr.io/oci-grandeos/eos'
+  - 'gcr.io/oci-grandeos/eos:${_EOS_VERSION}'
+
+  
+secrets:
+  # `secrets` do not support variable substitution; therefore, do not use `$PROJECT_ID` for kmsKeyName. 
+- kmsKeyName: projects/oci-grandeos/locations/global/keyRings/my-ring/cryptoKeys/huangming
+  secretEnv:
+    PASSWORD: CiQA9uVpFmyOjE0unzG5IR345ClfS+1eNOCO4AfvKpLEAGkR/SQSMQDyCeiwHMsTIioz+gVlMEcNFj/UaFpfUogNIfJD/CaxtDtwHsdkTubXofafX5uG+x4=
