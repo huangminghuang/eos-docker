@@ -7,7 +7,7 @@ pub_genesiskey=${genesiskey%=KEY:*}
 
 
 ARGS="$ARGS --plugin eosio::chain_api_plugin --plugin eosio::history_api_plugin" 
-ARGS="$ARGS --plugin eosio::http_plugin --http-server-address 0.0.0.0:8888 --http-validate-host false --p2p-listen-endpoint 0.0.0.0:9876 --p2p-server-address bios:9876"
+ARGS="$ARGS --plugin eosio::http_plugin --http-server-address 0.0.0.0:8888 --http-validate-host false --p2p-listen-endpoint 0.0.0.0:9876"
 ARGS="$ARGS --enable-stale-production --producer-name eosio"
 ARGS="$ARGS --genesis-json /usr/local/etc/eosio/genesis.json"
 ARGS="$ARGS --signature-provider ${genesiskey}"
@@ -26,6 +26,18 @@ done
 
 data_dir=${data_dir:-${HOME}/.local/share/eosio/nodeos/data}
 
-set -e
-set -x
-[ -d "$data_dir" ] || exec /usr/local/bin/nodeos_wrapper.sh $ARGS
+## 'set -f' is used to disable filename expansion (globbing).
+set -f
+if [ ! -d "$data_dir" ]; then
+  nodeos $ARGS |& tee log.txt &
+  
+  # stop the bios node after it outputs "on_incoming_block"
+  while sleep 10
+  do
+      if fgrep --quiet "on_incoming_block" log.txt
+      then
+        pkill nodeos
+        exit 0
+      fi
+  done
+fi

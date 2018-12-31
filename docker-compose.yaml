@@ -8,6 +8,7 @@ services:
     command: 
       - bash
       - /usr/local/bin/boot-bios.sh
+      - --p2p-server-address bios:9876
       - ${NODEOS_OPTIONS:---max-transaction-time 50000 --abi-serializer-max-time-ms 990000 --contracts-console --filter-on "*"}
     restart: "no"
     # tty: true
