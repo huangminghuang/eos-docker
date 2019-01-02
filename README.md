@@ -5,20 +5,13 @@ bootstrap an EOSIO Testnet with one nodeos process. It exposes the http port 888
 
 This is just a single machine solution. If you need to create a Testnet running on a cluster, please use the kubernetes solution from https://github.com/huangminghuang/eosio-testnet.git.
 
-## Creating the docker image
-
-Build the image from scatch may take a long time and requres enough CPU/RAM resources available to your docker daemon. You can just use the image `huangminghuang/eos` from DockerHub unless you need further customization.
-
-The image building process is intentionally separated into two steps in order to speed up the build time for CI purpose. 
-
-To build the image for the first time.
-```bash
-  docker build . -t $EOS_IMAGE --build-arg JOBS=2
-```
-
-If you encounter any internal compile error from g++, it is mostly because not enough RAM for your docker daemon. You may try `JOBS=1` to reduce the number of parallel jobs for compilation.
 
 ## Getting Started on local machine
+
+Get the `docker-compose.yaml` file from the docker image.
+```bash
+  docker run --rm -t huangminghuang/eos cat /docker-compose.yaml > docker-compose.yaml
+```
 
 Start a new Testnet with one nodeos process:
 ```bash
@@ -46,3 +39,15 @@ Shutdown the Testnet:
   docker-compose down
 ```
 
+## Creating the docker image
+
+Build the image from scatch may take a long time and requres enough CPU/RAM resources available to your docker daemon. You can just use the image `huangminghuang/eos` from DockerHub unless you need further customization.
+
+The image building process is intentionally separated into two steps in order to speed up the build time for CI purpose. 
+
+To build the image for the first time.
+```bash
+  docker build . -t $EOS_IMAGE --build-arg JOBS=2
+```
+
+If you encounter any internal compile error from g++, it is mostly because not enough RAM for your docker daemon. You may try `JOBS=1` to reduce the number of parallel jobs for compilation.

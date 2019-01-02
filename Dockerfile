@@ -36,4 +36,5 @@ COPY --from=eos-cache /usr/local/share/licenses /usr/local/share/licenses
 COPY --from=contract-builder /contracts /usr/local/contracts
 COPY *.json /usr/local/etc/eosio/
 COPY *.sh /usr/local/bin/
+COPY docker-compose*.yaml /
 RUN chmod +x /usr/local/bin/*.sh

@@ -3,7 +3,7 @@
 host_id=${HOSTID:-${HOSTNAME}}
 host_prefix=${host_id%-*} ## GET the substring before the character '-' in HOSTNAME
 ordinal=${host_id##*-}    ## GET the substring after the character '-' in HOSTNAME
-service_pattern=${SERVICE_PATTERN:-${host_id}-\{\}} # the service pattern should be in the form of <StatefulSet-Name>-{}.<ServiceName>
+service_pattern=${SERVICE_PATTERN:-${host_prefix}-\{\}} # the service pattern should be in the form of <StatefulSet-Name>-{}.<ServiceName>
 
 echo PRODUCERS=${PRODUCERS} NODES=${NODES}
 num_producers=${PRODUCERS:-1}
@@ -125,14 +125,14 @@ function config_producer_args {
   done
 }
 
-function setup_producer_account {  
+function setup_producer_account {
 
   [ -n "$node_producers" ] || return 0
   
-  while ! $ecmd get account eosio; do
+  while ! $ecmd get account eosio | grep "SYS balances"; do
     sleep 3
   done
-  
+
   for producer_name in $node_producers; do
     $ecmd system newaccount --transfer --stake-net "10000000.0000 SYS" --stake-cpu "10000000.0000 SYS"  --buy-ram "10000000.0000 SYS" eosio $producer_name $pubkey $pubkey || continue
     $ecmd system regproducer $producer_name $pubkey

@@ -36,6 +36,7 @@ if [ ! -d "$data_dir" ]; then
   do
       if fgrep --quiet "on_incoming_block" log.txt
       then
+        sleep 600
         pkill nodeos
         exit 0
       fi

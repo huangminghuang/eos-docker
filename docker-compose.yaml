@@ -9,7 +9,7 @@ services:
       - bash
       - /usr/local/bin/boot-bios.sh
       - --p2p-server-address bios:9876
-      - ${NODEOS_OPTIONS:---max-transaction-time 50000 --abi-serializer-max-time-ms 990000 --contracts-console --filter-on "*"}
+      - ${NODEOS_OPTIONS:---max-transaction-time 50000 --abi-serializer-max-time-ms 990000}
     restart: "no"
     # tty: true
       
@@ -21,7 +21,7 @@ services:
     command:
       - bash
       - /usr/local/bin/boot-nodeos.sh
-      - ${NODEOS_OPTIONS:---max-transaction-time 50000 --abi-serializer-max-time-ms 990000 --contracts-console --filter-on "*"}
+      - ${NODEOS_OPTIONS:---max-transaction-time 50000 --abi-serializer-max-time-ms 990000}
     depends_on:
       - bios
     environment:

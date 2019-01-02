@@ -1,0 +1,89 @@
+version: "3.3"
+
+services:
+  bios:
+    # build:
+    #   context: .
+    image: ${EOS_IMAGE:-huangminghuang/eos}
+    command: 
+      - bash
+      - /usr/local/bin/boot-bios.sh
+      - --p2p-server-address bios:9876
+      - ${NODEOS_OPTIONS:---max-transaction-time 50000 --abi-serializer-max-time-ms 990000}
+    restart: "no"
+      
+  nodeos-0:
+    hostname: nodeos-0
+    # build:
+    #   context: .
+    image: ${EOS_IMAGE:-huangminghuang/eos}
+    command:
+      - bash
+      - /usr/local/bin/boot-nodeos.sh
+      - ${NODEOS_OPTIONS:---max-transaction-time 50000 --abi-serializer-max-time-ms 990000}
+    depends_on:
+      - bios
+    environment:
+      BIOS_ADDR: "bios:8888"
+      PRODUCERS: 4
+      NODES: 4
+    ports:
+      - 8888:8888
+    restart: unless-stopped
+
+  nodeos-1:
+    hostname: nodeos-1
+    # build:
+    #   context: .
+    image: ${EOS_IMAGE:-huangminghuang/eos}
+    command:
+      - bash
+      - /usr/local/bin/boot-nodeos.sh
+      - ${NODEOS_OPTIONS:---max-transaction-time 50000 --abi-serializer-max-time-ms 990000}
+    depends_on:
+      - bios
+    environment:
+      BIOS_ADDR: "bios:8888"
+      PRODUCERS: 4
+      NODES: 4
+    ports:
+      - 8889:8888
+    restart: unless-stopped
+
+  nodeos-2:
+    hostname: nodeos-2
+    # build:
+    #   context: .
+    image: ${EOS_IMAGE:-huangminghuang/eos}
+    command:
+      - bash
+      - /usr/local/bin/boot-nodeos.sh
+      - ${NODEOS_OPTIONS:---max-transaction-time 50000 --abi-serializer-max-time-ms 990000}
+    depends_on:
+      - bios
+    environment:
+      BIOS_ADDR: "bios:8888"
+      PRODUCERS: 4
+      NODES: 4
+    ports:
+      - 8890:8888
+    restart: unless-stopped
+
+  nodeos-3:
+    hostname: nodeos-3
+    # build:
+    #   context: .
+    image: ${EOS_IMAGE:-huangminghuang/eos}
+    command:
+      - bash
+      - /usr/local/bin/boot-nodeos.sh
+      - ${NODEOS_OPTIONS:---max-transaction-time 50000 --abi-serializer-max-time-ms 990000}
+    depends_on:
+      - bios
+    environment:
+      BIOS_ADDR: "bios:8888"
+      PRODUCERS: 4
+      NODES: 4
+    ports:
+      - 8891:8888
+    restart: unless-stopped
