@@ -11,8 +11,8 @@ num_nodes=${NODES:-1}
 
 data_dir=${data_dir:-${HOME}/.local/share/eosio/nodeos/data}
 [ ! -d $data_dir ] || data_files=$(ls -A $data_dir 2>/dev/null)
-config_dir=${config_dir:-${HOME}/.local/share/eosio/nodeos/config}
-mkdir -p $config_dir
+export config_dir=/usr/local/etc/eosio
+config_ini=${config_dir}/config.ini
 
 bios_url=http://${BIOS_ADDR}
 bios_host=${BIOS_ADDR%:*}
@@ -33,9 +33,9 @@ function echoerr { echo "$@" 1>&2; }
 
 
 function config_p2p_addresses {
-  ARGS="$ARGS --plugin eosio::net_plugin"
+  echo "plugin = eosio::net_plugin" >> $config_ini
   for ((id=0; id<$num_nodes ; id++)); do
-    [[ $id == $ordinal ]] || ARGS="$ARGS --p2p-peer-address ${service_pattern/\{\}/${id}}:9876"
+    [[ $id == $ordinal ]] || echo "p2p-peer-address = ${service_pattern/\{\}/${id}}:9876" >> $config_ini
   done
 }
 
@@ -60,12 +60,15 @@ function setup_eosio {
   
   $ecmd set contract eosio /usr/local/contracts eosio.bios.wasm eosio.bios.abi || return 0
 
+  set +x
   # Create required system accounts
   readarray syskey <<< $(cleos create key --to-console)
   local pubsyskey=${syskey[1]#"Public key:"}
   local prisyskey=${syskey[0]#"Private key:"}
   
   $wcmd import -n ignition --private-key $prisyskey
+  echo $wcmd import -n ignition --private-key 
+  set -x
   $ecmd create account eosio eosio.bpay $pubsyskey $pubsyskey
   $ecmd create account eosio eosio.msig $pubsyskey $pubsyskey
   $ecmd create account eosio eosio.names $pubsyskey $pubsyskey
@@ -98,6 +101,7 @@ function setup_wallet {
   
   keyfile=$config_dir/key.txt
   
+  
   keys=($(echo "$PRODUCER_KEYS" | tr ',' '\n')) 
   prikey=${keys[$ordinal]}
   
@@ -110,7 +114,9 @@ function setup_wallet {
   fi
     
   pubkey=$($ecmd wallet import -n ignition --private-key $prikey | sed 's/[^:]*: //')  
-  ARGS="--signature-provider ${pubkey}=KEY:${prikey} $ARGS --plugin eosio::producer_plugin"
+  echo "signature-provider = ${pubkey}=KEY:${prikey}" >> $config_ini
+  
+  echo "plugin = eosio::producer_plugin" >> $config_ini
 }
 
 function config_producer_args {
@@ -120,7 +126,7 @@ function config_producer_args {
   alphabets="abcdefghijklmnopqrstuv"
   for (( id=$ordinal; id<21; id+=$num_producers )); do
     producer_name="defproducer${alphabets:$id:1}"
-    ARGS="$ARGS --producer-name ${producer_name}"
+    echo "producer-name = ${producer_name}" >> $config_ini
     node_producers="${node_producers} ${producer_name}"
   done
 }
@@ -146,60 +152,75 @@ _term() {
   exit 0
 }
 
-ARGS=
-while [[ $# -gt 0 ]]; do
-  case $1 in
-    --genesis-timestamp)
-      genesis_timestamp_option="--genesis-timestamp $2"
+function args_to_config() {
+  while [[ $# -gt 0 ]]; do
+    key=${1:2}
+    value=true
+    if [[ $2 != --* ]]; then
+      value=$2 
       shift
-      shift
-    ;;
-    *)
-      ARGS="$ARGS $1"
-      shift
-  esac
-done
+    fi
+    echo "$key = $value" >> $config_ini
+    shift
+  done
+}
 
+echo "blocks-dir = blocks" >> $config_ini
+
+args_to_config $*
 
 [[ $num_nodes > $num_producers ]] || num_nodes=num_producers
 [[ $num_producers < $ordinal ]] || config_producer_args
 
-config_p2p_addresses
-ARGS="$ARGS --plugin eosio::chain_api_plugin --plugin eosio::history_api_plugin" 
-ARGS="$ARGS --plugin eosio::http_plugin --http-server-address 0.0.0.0:8888 --http-validate-host false --p2p-listen-endpoint 0.0.0.0:9876 --p2p-server-address ${service_pattern/\{\}/${ordinal}}:9876"
-ARGS="$ARGS --logconf /usr/local/etc/eosio/logging.json"
+set -ex
 
-set -e
-set -x
+config_p2p_addresses
+
+cat << EOF >> $config_ini
+plugin = eosio::chain_api_plugin
+plugin = eosio::history_api_plugin
+plugin = eosio::http_plugin
+http-server-address = 0.0.0.0:8888 
+http-validate-host = false
+p2p-listen-endpoint = 0.0.0.0:9876 
+p2p-server-address = ${service_pattern/\{\}/${ordinal}}:9876
+EOF
+
 
 trap _term SIGTERM
 # trap "echo caught SIGTERM; kill -- -0; sleep 3; exit 0" SIGTERM EXIT
 
 if [ -d "$data_dir" ] ; then
-  [[ $ordinal != 0 ]] || ARGS="$ARGS --enable-stale-production"
+  [[ $ordinal != 0 ]] || echo "enable-stale-production = true" >> $config_ini
 else
   ## remove data_dir if it's a dirty restart
   rm -rf ${data_dir}
-
+  set +x
   $wcmd import -n ignition --private-key $pri_genesiskey
+  set -x
   wait_bios_ready
   setup_eosio
   setup_producer_account
-  ARGS="$ARGS --p2p-peer-address ${bios_host}:9876 --genesis-json /usr/local/etc/eosio/genesis.json $genesis_timestamp_option --enable-stale-production"
+  
+  cat << EOF >> $config_ini
+p2p-peer-address = ${bios_host}:9876
+enable-stale-production = true
+EOF
 fi
+
 
 pkill keosd || :
 
 set -f #disable file name globing 
-nodeos_wrapper.sh $ARGS &
+nodeos_wrapper.sh &
 child=$!
 ! wait "$child" || exit 0
 
-nodeos_wrapper.sh $ARGS --replay-blockchain &
+nodeos_wrapper.sh --replay-blockchain &
 child=$!
 ! wait "$child" || exit 0
 
-nodeos_wrapper.sh $ARGS --hard-replay-blockchain &
+nodeos_wrapper.sh --hard-replay-blockchain &
 child=$!
 wait "$child"
 
